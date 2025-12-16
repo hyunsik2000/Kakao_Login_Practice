@@ -1,64 +1,50 @@
-const form = document.querySelector("form");
-const idInput = document.querySelector("#user_id");
-const passwordInput = document.querySelector("#user_pw");
+const kakaoLoginButton = document.querySelector("#kakao");
+const naverLoginButton = document.querySelector("#naver");
 
-const loginButton = document.querySelector("#login_btn");
+const userImage = document.querySelector("img");
+const userName = document.querySelector("#user_name");
 const logoutButton = document.querySelector("#logout_btn");
 
-const main = document.querySelector("main");
-const userName = document.querySelector("#user_name");
-const userDetail = document.querySelector("#user_info");
-
-axios.defaults.withCredentials = true;
-
-// form의 기본 submit 값 초기화
-form.addEventListener("submit", (e) => e.preventDefault());
-
-// 로그인 함수
-function login() {
-  const userId = idInput.value;
-  const userPassword = passwordInput.value;
-
-  return axios.post("http://localhost:3000", { userId, userPassword });
+function renderUserInfo(imgUrl, name) {
+  userImage.src = imgUrl;
+  userName.textContent = name;
 }
 
-// 로그아웃 함수
-function logout() {
-  return axios.delete("http://localhost:3000");
-}
+const kakaoClientId = "59dab6a3c5c33535824946315024caae";
+const redirectURI = "http://127.0.0.1:5500";
+let kakaoAccessToken = "";
 
-// 유저 정보를 받아오는 함수
-function getUserInfo() {
-  return axios.get("http://localhost:3000");
-}
-
-// 유저 정보를 렌더링 시키는 함수
-function renderUserInfo(userInfo) {
-  main.style.display = "block";
-  form.style.display = "none";
-  userName.textContent = userInfo.user_name;
-  userDetail.textContent = userInfo.user_info;
-}
-
-// 유저 정보를 숨기는 함수
-function renderLoginForm() {
-  main.style.display = "none";
-  form.style.display = "block";
-  userName.textContent = "";
-  userDetail.textContent = "";
-}
-
-// 로그인 버튼을 클릭하는 경우 post 요청 보낸 후 get 요청
-loginButton.onclick = () => {
-  login()
-    .then(() => getUserInfo())
-    .then((res) => renderUserInfo(res.data));
+kakaoLoginButton.onclick = () => {
+  location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${kakaoClientId}&redirect_uri=${redirectURI}&response_type=code`;
 };
 
-// 로그아웃 버튼을 클릭하는 경우
 logoutButton.onclick = () => {
-  logout().then((res) => {
-    console.log(res);
-    renderLoginForm();
-  });
+  axios
+    .delete("http://localhost:3000/kakao/logout", {
+      data: { kakaoAccessToken },
+    })
+    .then((res) => {
+      renderUserInfo("", "");
+    });
+};
+
+window.onload = () => {
+  const url = new URL(location.href);
+  const urlParams = url.searchParams;
+  const authorizationCode = urlParams.get("code");
+
+  axios
+    .post("http://localhost:3000/kakao/login", {
+      authorizationCode,
+    })
+    .then((res) => {
+      kakaoAccessToken = res.data;
+      axios
+        .post("http://localhost:3000/kakao/userInfo", {
+          kakaoAccessToken,
+        })
+        .then((res) =>
+          renderUserInfo(res.data.profile_image, res.data.nickname)
+        );
+    });
 };
